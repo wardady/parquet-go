@@ -94,8 +94,13 @@ func (t byteArrayType) ConvertValue(val Value, typ Type) (Value, error) {
 		return convertFloatToByteArray(val)
 	case Double:
 		return convertDoubleToByteArray(val)
-	case ByteArray, FixedLenByteArray:
+	case ByteArray:
 		return val, nil
+	case FixedLenByteArray:
+		// Re-kind the value as ByteArray so downstream consumers see
+		// the target kind. The payload layout is identical between
+		// the two byte-array kinds, so this is a pure re-tag of the existing bytes.
+		return val.convertToByteArray(val.byteArray()), nil
 	default:
 		return makeValueKind(ByteArray), nil
 	}
