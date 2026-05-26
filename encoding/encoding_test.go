@@ -215,6 +215,37 @@ func TestEncoding(t *testing.T) {
 	}
 }
 
+// TestRLEDecodeLevelsToleratesEmptyRuns checks that the RLE level decoder
+// stays cursor-aligned across run headers with count == 0 (emitted by some
+// upstream writers, never by this library). The input is a hand-crafted
+// RLE/Hybrid stream:
+//
+//	0x00 -> varint (count=0, bitpacked=false): empty RLE run
+//	0x08 -> varint (count=4, bitpacked=false): four-value RLE run
+//	0x01 -> repeated value byte for that run
+//
+// With the fix the decoder yields {1,1,1,1}; without it 0x08 is misread as
+// the empty run's word, the cursor shifts by one, and the output is empty.
+func TestRLEDecodeLevelsToleratesEmptyRuns(t *testing.T) {
+	if cpu.IsBigEndian {
+		t.Skip("tests for RLE encoding are failing on s390x")
+	}
+
+	enc := &rle.Encoding{BitWidth: 1}
+
+	src := []byte{0x00, 0x08, 0x01}
+	want := []byte{1, 1, 1, 1}
+
+	got, err := enc.DecodeLevels(nil, src)
+	if err != nil {
+		t.Fatalf("DecodeLevels: %v", err)
+	}
+	if len(got) != len(want) {
+		t.Fatalf("DecodeLevels produced %d values, want %d (got=%v)", len(got), len(want), got)
+	}
+	assertEqualBytes(t, want, got)
+}
+
 func testEncoding(t *testing.T, e encoding.Encoding) {
 	for _, test := range [...]struct {
 		scenario string
