@@ -55,6 +55,12 @@ func (t byteArrayType) EstimateDecodeSize(numValues int, src []byte, enc encodin
 }
 
 func (t byteArrayType) AssignValue(dst reflect.Value, src Value) error {
+	// Kind guard: a cross-routed non-ByteArray value (e.g. Int64 slid in
+	// when a writer elided a null leaf) would unsafe.Slice nil with the
+	// payload's length. Drop to null. See PSD-8838 / PSD-8933.
+	if !src.IsNull() && src.Kind() != ByteArray {
+		src = Value{}
+	}
 	v := src.byteArray()
 	switch dst.Kind() {
 	case reflect.String:
